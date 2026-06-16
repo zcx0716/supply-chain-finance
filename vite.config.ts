@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tsconfigPaths from "vite-tsconfig-paths";
 import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 
-const base = process.env.GITHUB_PAGES ? '/supply-chain-finance/' : '/';
+const base = process.env.VITE_GITHUB_PAGES ? '/supply-chain-finance/' : '/';
 
 export default defineConfig({
   base,
