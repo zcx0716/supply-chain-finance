@@ -11,6 +11,8 @@ import Payments from "./pages/Payments";
 import { Contracts } from "./pages/Contracts";
 import { System } from "./pages/System";
 
+const basename = process.env.GITHUB_PAGES ? "/supply-chain-finance" : "/";
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAppStore();
   if (!isAuthenticated) {
@@ -23,7 +25,7 @@ export default function App() {
   const { isAuthenticated } = useAppStore();
 
   return (
-    <Router>
+    <Router basename={basename}>
       <div className="min-h-screen bg-slate-50">
         <ToastContainer />
         <Routes>
