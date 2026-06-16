@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useAppStore } from "./store";
 import { Layout } from "./components/Layout";
 import { ToastContainer } from "./components/Toast";
@@ -10,8 +10,6 @@ import PaymentManagement from "./pages/PaymentManagement";
 import Payments from "./pages/Payments";
 import { Contracts } from "./pages/Contracts";
 import { System } from "./pages/System";
-
-const basename = "/supply-chain-finance";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAppStore();
@@ -25,7 +23,7 @@ export default function App() {
   const { isAuthenticated } = useAppStore();
 
   return (
-    <Router basename={basename}>
+    <Router>
       <div className="min-h-screen bg-slate-50">
         <ToastContainer />
         <Routes>

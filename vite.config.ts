@@ -4,7 +4,6 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 
 export default defineConfig({
-  base: '/supply-chain-finance/',
   plugins: [
     react({
       babel: {
