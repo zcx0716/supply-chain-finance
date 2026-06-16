@@ -11,7 +11,7 @@ import Payments from "./pages/Payments";
 import { Contracts } from "./pages/Contracts";
 import { System } from "./pages/System";
 
-const basename = import.meta.env.VITE_GITHUB_PAGES ? "/supply-chain-finance" : "/";
+const basename = "/supply-chain-finance";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAppStore();
