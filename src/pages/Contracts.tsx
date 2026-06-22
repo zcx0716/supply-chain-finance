@@ -484,7 +484,7 @@ export function Contracts() {
                           setEditingTemplate(template.id);
                           setEditingContent(template.content);
                         }}
-                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         title="编辑模板"
                       >
                         <Edit2 className="w-4 h-4" />
@@ -495,7 +495,7 @@ export function Contracts() {
                             deleteContractFile(template.id);
                           }
                         }}
-                        className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="删除模板"
                       >
                         <Trash2 className="w-4 h-4" />
