@@ -122,7 +122,8 @@ export function generateWordDocumentFromText(
   // 替换模板变量
   let processedContent = textContent;
   Object.entries(variables).forEach(([key, value]) => {
-    const regex = new RegExp(key.replace(/\{/g, '\\{').replace(/\}/g, '\\}'), 'g');
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escapedKey, 'g');
     processedContent = processedContent.replace(regex, value);
   });
 

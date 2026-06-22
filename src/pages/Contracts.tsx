@@ -225,6 +225,7 @@ export function Contracts() {
       '{订单号}': order.orderNo,
       '{合同编号}': order.orderNo,
       '{contractNo}': order.orderNo,
+      '{ORD}': order.orderNo,
       '{主体企业名称}': order.mainCompany.name,
       '{主体企业信用代码}': order.mainCompany.unifiedCreditCode || '-',
       '{主体企业地址}': order.mainCompany.address || '-',
@@ -238,6 +239,7 @@ export function Contracts() {
       '{partyAAddress}': defaultDownstream.address || '-',
       '{partyAContact}': defaultDownstream.contactPerson || '-',
       '{partyAPhone}': defaultDownstream.contactPhone || '-',
+      '{甲方}': defaultDownstream.name || '待填写',
       '{甲方名称}': defaultDownstream.name || '待填写',
       '{甲方地址}': defaultDownstream.address || '-',
       '{甲方联系人}': defaultDownstream.contactPerson || '-',
@@ -246,6 +248,7 @@ export function Contracts() {
       '{partyBAddress}': defaultUpstream.address || '-',
       '{partyBContact}': defaultUpstream.contactPerson || '-',
       '{partyBPhone}': defaultUpstream.contactPhone || '-',
+      '{乙方}': defaultUpstream.name || '待填写',
       '{乙方名称}': defaultUpstream.name || '待填写',
       '{乙方地址}': defaultUpstream.address || '-',
       '{乙方联系人}': defaultUpstream.contactPerson || '-',
@@ -253,7 +256,8 @@ export function Contracts() {
     };
 
     Object.entries(replacements).forEach(([key, value]) => {
-      content = content.replace(new RegExp(key, 'g'), value);
+      const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      content = content.replace(new RegExp(escapedKey, 'g'), value);
     });
 
     return content;
@@ -349,7 +353,36 @@ export function Contracts() {
           contractTemplateName === '销售合同模板' ? 'sales' : 'service';
         generateSimpleContractDocument(order, templateType, docFileName);
       } else {
-        generateWordDocumentFromText(content, {}, docFileName);
+        const defaultUpstream = order.upstreams.length > 0 ? order.upstreams[0].company : {
+          name: '待填写', unifiedCreditCode: '', address: '', contactPerson: '', contactPhone: '',
+        };
+        const defaultDownstream = order.downstreams.length > 0 ? order.downstreams[0].company : {
+          name: '待填写', unifiedCreditCode: '', address: '', contactPerson: '', contactPhone: '',
+        };
+        
+        const variables = {
+          '{订单号}': order.orderNo,
+          '{合同编号}': order.orderNo,
+          '{主体企业名称}': order.mainCompany.name,
+          '{主体企业信用代码}': order.mainCompany.unifiedCreditCode || '-',
+          '{主体企业地址}': order.mainCompany.address || '-',
+          '{主体企业联系人}': order.mainCompany.contactPerson || '-',
+          '{主体企业电话}': order.mainCompany.contactPhone || '-',
+          '{订单金额}': formatYuan(order.receivableAmount),
+          '{当前日期}': formatDate(new Date()),
+          '{甲方}': defaultDownstream.name || '待填写',
+          '{甲方名称}': defaultDownstream.name || '待填写',
+          '{甲方地址}': defaultDownstream.address || '-',
+          '{甲方联系人}': defaultDownstream.contactPerson || '-',
+          '{甲方电话}': defaultDownstream.contactPhone || '-',
+          '{乙方}': defaultUpstream.name || '待填写',
+          '{乙方名称}': defaultUpstream.name || '待填写',
+          '{乙方地址}': defaultUpstream.address || '-',
+          '{乙方联系人}': defaultUpstream.contactPerson || '-',
+          '{乙方电话}': defaultUpstream.contactPhone || '-',
+        };
+        
+        generateWordDocumentFromText(content, variables, docFileName);
       }
     } else {
       // 原有的 TXT 下载
