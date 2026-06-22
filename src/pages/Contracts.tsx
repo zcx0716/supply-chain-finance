@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, FileText, Download, Upload, Trash2 } from 'lucide-react';
+import { Plus, FileText, Download, Upload, Trash2, Edit2, X, Save } from 'lucide-react';
 import mammoth from 'mammoth';
 import { useAppStore } from '../store';
 import { formatYuan, formatDate } from '../utils/formatters';
@@ -9,7 +9,7 @@ import {
 } from '../utils/wordDocument';
 
 export function Contracts() {
-  const { orders, contracts, contractFiles, addContract, addContractFile, deleteContract, addToast } = useAppStore();
+  const { orders, contracts, contractFiles, addContract, addContractFile, updateContractFile, deleteContractFile, deleteContract, addToast } = useAppStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTemplateList, setShowTemplateList] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<string>('');
@@ -17,6 +17,8 @@ export function Contracts() {
   const [customTemplate, setCustomTemplate] = useState<File | null>(null);
   const [templateContent, setTemplateContent] = useState<string>('');
   const [downloadFormat, setDownloadFormat] = useState<'docx'>('docx');
+  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const predefinedTemplates: Record<string, string> = {
@@ -232,6 +234,10 @@ export function Contracts() {
       '{主体企业联系人}': order.mainCompany.contactPerson || '-',
       '{主体企业电话}': order.mainCompany.contactPhone || '-',
       '{订单金额}': formatYuan(order.receivableAmount),
+      '{应收金额}': formatYuan(order.receivableAmount),
+      '{receivableAmount}': formatYuan(order.receivableAmount),
+      '{应付金额}': formatYuan(order.payableAmount),
+      '{payableAmount}': formatYuan(order.payableAmount),
       '{当前日期}': formatDate(new Date()),
       '{模板名称}': templateName || '自定义模板',
       '{订单明细列表}': generateOrderItemsList(orderId),
@@ -244,6 +250,7 @@ export function Contracts() {
       '{甲方地址}': defaultDownstream.address || '-',
       '{甲方联系人}': defaultDownstream.contactPerson || '-',
       '{甲方电话}': defaultDownstream.contactPhone || '-',
+      '{甲方信用代码}': defaultDownstream.unifiedCreditCode || '-',
       '{partyBName}': defaultUpstream.name || '待填写',
       '{partyBAddress}': defaultUpstream.address || '-',
       '{partyBContact}': defaultUpstream.contactPerson || '-',
@@ -253,6 +260,7 @@ export function Contracts() {
       '{乙方地址}': defaultUpstream.address || '-',
       '{乙方联系人}': defaultUpstream.contactPerson || '-',
       '{乙方电话}': defaultUpstream.contactPhone || '-',
+      '{乙方信用代码}': defaultUpstream.unifiedCreditCode || '-',
     };
 
     Object.entries(replacements).forEach(([key, value]) => {
@@ -470,12 +478,35 @@ export function Contracts() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-slate-800">{template.name}</span>
-                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                      {template.type === 'custom' ? '自定义' : '系统'}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setEditingTemplate(template.id);
+                          setEditingContent(template.content);
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="编辑模板"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`确定要删除模板 "${template.name}" 吗？`)) {
+                            deleteContractFile(template.id);
+                          }
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="删除模板"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   <p className="text-xs text-slate-500">
                     上传时间：{formatDate(template.createdAt)}
+                    {template.updatedAt && template.updatedAt > template.createdAt && (
+                      <span className="ml-2">| 更新时间：{formatDate(template.updatedAt)}</span>
+                    )}
                   </p>
                   <p className="text-xs text-slate-400 mt-2 line-clamp-2">
                     {template.content.substring(0, 100)}...
@@ -596,6 +627,80 @@ export function Contracts() {
         <div className="text-center py-12 bg-white rounded-xl border border-slate-100">
           <FileText className="w-16 h-16 mx-auto text-slate-300 mb-4" />
           <p className="text-slate-500">暂无合同数据</p>
+        </div>
+      )}
+
+      {editingTemplate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-slate-800">编辑模板内容</h2>
+              <button
+                onClick={() => {
+                  setEditingTemplate(null);
+                  setEditingContent('');
+                }}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  模板内容
+                </label>
+                <textarea
+                  value={editingContent}
+                  onChange={(e) => setEditingContent(e.target.value)}
+                  rows={15}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-mono resize-none"
+                />
+                <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+                  <p className="text-sm font-medium text-slate-700 mb-2">可用变量（上传模板时可使用这些占位符）：</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{订单号}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{合同编号}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{主体企业名称}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{主体企业信用代码}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{主体企业地址}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{应收金额}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{应付金额}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{甲方}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{甲方地址}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{甲方联系人}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{乙方}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{乙方地址}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{乙方联系人}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{当前日期}'}</span>
+                    <span className="px-2 py-1 bg-white rounded text-slate-600">{'{订单明细列表}'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 p-6 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  setEditingTemplate(null);
+                  setEditingContent('');
+                }}
+                className="flex-1 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  updateContractFile(editingTemplate, { content: editingContent });
+                  setEditingTemplate(null);
+                  setEditingContent('');
+                }}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Save className="w-4 h-4" />
+                保存修改
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

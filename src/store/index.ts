@@ -105,6 +105,8 @@ interface AppState {
   deleteContract: (id: string) => void;
 
   addContractFile: (file: Omit<ContractTemplate, 'id' | 'createdAt'>) => void;
+  updateContractFile: (id: string, file: Partial<ContractTemplate>) => void;
+  deleteContractFile: (id: string) => void;
 
   addToast: (toast: Omit<Toast, 'id'>) => void;
   removeToast: (id: string) => void;
@@ -585,6 +587,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { contractFiles: newFiles };
     });
     get().addToast({ type: 'success', message: '合同模板上传成功' });
+  },
+
+  updateContractFile: (id, file) => {
+    set((state) => {
+      const newFiles = state.contractFiles.map(f => f.id === id ? { ...f, ...file, updatedAt: new Date() } : f);
+      saveToStorage(STORAGE_KEYS.CONTRACT_FILES, newFiles);
+      return { contractFiles: newFiles };
+    });
+    get().addToast({ type: 'success', message: '合同模板更新成功' });
+  },
+
+  deleteContractFile: (id) => {
+    set((state) => {
+      const newFiles = state.contractFiles.filter(f => f.id !== id);
+      saveToStorage(STORAGE_KEYS.CONTRACT_FILES, newFiles);
+      return { contractFiles: newFiles };
+    });
+    get().addToast({ type: 'success', message: '合同模板删除成功' });
   },
 
   addToast: (toast) => {

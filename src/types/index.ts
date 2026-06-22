@@ -114,6 +114,7 @@ export interface ContractTemplate {
   content: string;
   type?: 'custom' | 'system';
   createdAt: Date;
+  updatedAt?: Date;
 }
 
 export interface User {
