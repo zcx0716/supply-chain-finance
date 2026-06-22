@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useAppStore } from "./store";
 import { Layout } from "./components/Layout";
@@ -19,11 +20,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AutoLoginOnLoad() {
+  const { login, isAuthenticated } = useAppStore();
+  useEffect(() => {
+    if (!isAuthenticated) {
+      login('admin', 'admin123');
+    }
+  }, [login, isAuthenticated]);
+  return null;
+}
+
 export default function App() {
   const { isAuthenticated } = useAppStore();
 
   return (
     <Router>
+      <AutoLoginOnLoad />
       <div className="min-h-screen bg-slate-50">
         <ToastContainer />
         <Routes>
