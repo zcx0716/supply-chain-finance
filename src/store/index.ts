@@ -20,6 +20,9 @@ const loadFromStorage = <T>(key: string, defaultValue: T): T => {
     if (!stored) return defaultValue;
     const parsed = JSON.parse(stored);
     if (Array.isArray(parsed)) {
+      if (parsed.length === 0 && Array.isArray(defaultValue) && defaultValue.length > 0) {
+        return defaultValue;
+      }
       return parsed.map(item => {
         if (item.createdAt) item.createdAt = new Date(item.createdAt);
         if (item.updatedAt) item.updatedAt = new Date(item.updatedAt);
