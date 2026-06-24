@@ -8,17 +8,33 @@ import {
   Settings,
   Building2
 } from 'lucide-react';
+import { useAppStore } from '../store';
 
-const menuItems = [
+interface MenuItem {
+  path: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  roles?: string[];
+}
+
+const menuItems: MenuItem[] = [
   { path: '/dashboard', label: '首页', icon: LayoutDashboard },
   { path: '/customers', label: '客户管理', icon: Users },
   { path: '/orders', label: '订单管理', icon: FileText },
   { path: '/payments', label: '回款管理', icon: DollarSign },
   { path: '/contracts', label: '合同管理', icon: FileSignature },
-  { path: '/system', label: '系统管理', icon: Settings },
+  { path: '/system', label: '系统管理', icon: Settings, roles: ['admin'] },
 ];
 
 export function Sidebar() {
+  const { user } = useAppStore();
+  const currentRole = user?.role || 'user';
+
+  const filteredMenuItems = menuItems.filter(item => {
+    if (!item.roles) return true;
+    return item.roles.includes(currentRole);
+  });
+
   return (
     <aside className="w-64 bg-gradient-to-b from-slate-800 to-slate-900 text-white min-h-screen flex flex-col">
       <div className="p-6 border-b border-slate-700">
@@ -33,7 +49,7 @@ export function Sidebar() {
       
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
-          {menuItems.map((item) => (
+          {filteredMenuItems.map((item) => (
             <li key={item.path}>
               <NavLink
                 to={item.path}

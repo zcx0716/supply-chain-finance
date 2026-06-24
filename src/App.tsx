@@ -19,6 +19,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAppStore();
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  if (user?.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   const { isAuthenticated } = useAppStore();
 
@@ -48,7 +59,14 @@ export default function App() {
             <Route path="/orders/:id/payments" element={<PaymentManagement />} />
             <Route path="/payments" element={<Payments />} />
             <Route path="/contracts" element={<Contracts />} />
-            <Route path="/system" element={<System />} />
+            <Route 
+              path="/system" 
+              element={
+                <AdminRoute>
+                  <System />
+                </AdminRoute>
+              } 
+            />
           </Route>
         </Routes>
       </div>
