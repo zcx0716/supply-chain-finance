@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Settings, Shield, Save, Plus } from 'lucide-react';
+import { User, Settings, Shield, Save, Plus, X } from 'lucide-react';
 import { useAppStore } from '../store';
 
 interface SystemUser {
@@ -14,12 +14,80 @@ export function System() {
   const { addToast } = useAppStore();
   const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'permissions'>('users');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
-
-  const mockUsers: SystemUser[] = [
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [users, setUsers] = useState<SystemUser[]>([
     { id: '1', username: 'admin', name: '管理员', role: 'admin', status: 'active' },
     { id: '2', username: 'user1', name: '张三', role: 'user', status: 'active' },
     { id: '3', username: 'user2', name: '李四', role: 'user', status: 'inactive' },
-  ];
+  ]);
+  const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    username: '',
+    password: '',
+    role: 'user' as 'admin' | 'user',
+  });
+
+  const handleOpenAddModal = () => {
+    setFormData({ name: '', username: '', password: '', role: 'user' });
+    setShowAddUserModal(true);
+  };
+
+  const handleOpenEditModal = (user: SystemUser) => {
+    setEditingUser(user);
+    setFormData({ name: user.name, username: user.username, password: '', role: user.role });
+    setShowEditUserModal(true);
+  };
+
+  const handleCreateUser = () => {
+    if (!formData.name || !formData.username || !formData.password) {
+      addToast({ type: 'error', message: '请填写完整信息' });
+      return;
+    }
+
+    const newUser: SystemUser = {
+      id: Date.now().toString(),
+      username: formData.username,
+      name: formData.name,
+      role: formData.role,
+      status: 'active',
+    };
+
+    setUsers([...users, newUser]);
+    setShowAddUserModal(false);
+    addToast({ type: 'success', message: '用户创建成功' });
+  };
+
+  const handleUpdateUser = () => {
+    if (!formData.name || !formData.username) {
+      addToast({ type: 'error', message: '请填写完整信息' });
+      return;
+    }
+
+    if (!editingUser) return;
+
+    setUsers(users.map(u =>
+      u.id === editingUser.id
+        ? { ...u, name: formData.name, username: formData.username, role: formData.role }
+        : u
+    ));
+    setShowEditUserModal(false);
+    addToast({ type: 'success', message: '用户更新成功' });
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    setUsers(users.filter(u => u.id !== userId));
+    addToast({ type: 'success', message: '用户删除成功' });
+  };
+
+  const handleToggleStatus = (userId: string) => {
+    setUsers(users.map(u =>
+      u.id === userId
+        ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' }
+        : u
+    ));
+    addToast({ type: 'success', message: '用户状态已更新' });
+  };
 
   const handleSaveSettings = () => {
     addToast({ type: 'success', message: '设置保存成功' });
@@ -73,7 +141,7 @@ export function System() {
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-800">用户列表</h2>
             <button
-              onClick={() => setShowAddUserModal(true)}
+              onClick={handleOpenAddModal}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -102,7 +170,7 @@ export function System() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {mockUsers.map((u) => (
+                {users.map((u) => (
                   <tr key={u.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
@@ -125,17 +193,30 @@ export function System() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        u.status === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-slate-100 text-slate-800'
-                      }`}>
+                      <button
+                        onClick={() => handleToggleStatus(u.id)}
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${
+                          u.status === 'active'
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                            : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
+                        }`}
+                      >
                         {u.status === 'active' ? '启用' : '禁用'}
-                      </span>
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button className="text-blue-600 hover:text-blue-800 mr-4">编辑</button>
-                      <button className="text-red-600 hover:text-red-800">删除</button>
+                      <button
+                        onClick={() => handleOpenEditModal(u)}
+                        className="text-blue-600 hover:text-blue-800 mr-4"
+                      >
+                        编辑
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(u.id)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        删除
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -269,14 +350,22 @@ export function System() {
       {showAddUserModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md">
-            <div className="p-6 border-b border-slate-100">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-slate-800">新增用户</h2>
+              <button
+                onClick={() => setShowAddUserModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">姓名</label>
                 <input
                   type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   placeholder="请输入姓名"
                 />
@@ -285,6 +374,8 @@ export function System() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">用户名</label>
                 <input
                   type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   placeholder="请输入用户名"
                 />
@@ -293,13 +384,19 @@ export function System() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">密码</label>
                 <input
                   type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   placeholder="请输入密码"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">角色</label>
-                <select className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'user' })}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
                   <option value="user">普通用户</option>
                   <option value="admin">管理员</option>
                 </select>
@@ -313,13 +410,83 @@ export function System() {
                 取消
               </button>
               <button
-                onClick={() => {
-                  setShowAddUserModal(false);
-                  addToast({ type: 'success', message: '用户创建成功' });
-                }}
+                onClick={handleCreateUser}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 创建
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditUserModal && editingUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-slate-800">编辑用户</h2>
+              <button
+                onClick={() => setShowEditUserModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">姓名</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  placeholder="请输入姓名"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">用户名</label>
+                <input
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  placeholder="请输入用户名"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">密码（留空表示不修改）</label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  placeholder="请输入新密码"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">角色</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'user' })}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value="user">普通用户</option>
+                  <option value="admin">管理员</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 p-6 border-t border-slate-100">
+              <button
+                onClick={() => setShowEditUserModal(false)}
+                className="flex-1 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleUpdateUser}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                保存
               </button>
             </div>
           </div>
