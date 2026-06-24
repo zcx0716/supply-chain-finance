@@ -1,0 +1,11 @@
+name = "supply-chain-finance"
+type = "static"
+
+[build]
+command = "npm run build"
+publish = "dist"
+
+[[redirects]]
+source = "/*"
+destination = "/index.html"
+status = 200
