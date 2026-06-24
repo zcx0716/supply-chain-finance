@@ -2,25 +2,12 @@ import { useState } from 'react';
 import { User, Settings, Shield, Save, Plus, X } from 'lucide-react';
 import { useAppStore } from '../store';
 
-interface SystemUser {
-  id: string;
-  username: string;
-  name: string;
-  role: 'admin' | 'user';
-  status: 'active' | 'inactive';
-}
-
 export function System() {
-  const { addToast } = useAppStore();
+  const { users, addUser, updateUser, deleteUser, addToast } = useAppStore();
   const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'permissions'>('users');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
-  const [users, setUsers] = useState<SystemUser[]>([
-    { id: '1', username: 'admin', name: '管理员', role: 'admin', status: 'active' },
-    { id: '2', username: 'user1', name: '张三', role: 'user', status: 'active' },
-    { id: '3', username: 'user2', name: '李四', role: 'user', status: 'inactive' },
-  ]);
-  const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     username: '',
@@ -33,8 +20,8 @@ export function System() {
     setShowAddUserModal(true);
   };
 
-  const handleOpenEditModal = (user: SystemUser) => {
-    setEditingUser(user);
+  const handleOpenEditModal = (user: typeof users[0]) => {
+    setEditingUserId(user.id);
     setFormData({ name: user.name, username: user.username, password: '', role: user.role });
     setShowEditUserModal(true);
   };
@@ -45,17 +32,14 @@ export function System() {
       return;
     }
 
-    const newUser: SystemUser = {
-      id: Date.now().toString(),
+    addUser({
       username: formData.username,
+      password: formData.password,
       name: formData.name,
       role: formData.role,
-      status: 'active',
-    };
+    });
 
-    setUsers([...users, newUser]);
     setShowAddUserModal(false);
-    addToast({ type: 'success', message: '用户创建成功' });
   };
 
   const handleUpdateUser = () => {
@@ -64,29 +48,32 @@ export function System() {
       return;
     }
 
-    if (!editingUser) return;
+    if (!editingUserId) return;
 
-    setUsers(users.map(u =>
-      u.id === editingUser.id
-        ? { ...u, name: formData.name, username: formData.username, role: formData.role }
-        : u
-    ));
+    const updates: Record<string, unknown> = {
+      name: formData.name,
+      username: formData.username,
+      role: formData.role,
+    };
+
+    if (formData.password) {
+      updates.password = formData.password;
+    }
+
+    updateUser(editingUserId, updates);
     setShowEditUserModal(false);
-    addToast({ type: 'success', message: '用户更新成功' });
+    setEditingUserId(null);
   };
 
   const handleDeleteUser = (userId: string) => {
-    setUsers(users.filter(u => u.id !== userId));
-    addToast({ type: 'success', message: '用户删除成功' });
+    deleteUser(userId);
   };
 
   const handleToggleStatus = (userId: string) => {
-    setUsers(users.map(u =>
-      u.id === userId
-        ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' }
-        : u
-    ));
-    addToast({ type: 'success', message: '用户状态已更新' });
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      updateUser(userId, { status: user.status === 'active' ? 'inactive' : 'active' });
+    }
   };
 
   const handleSaveSettings = () => {
@@ -420,13 +407,13 @@ export function System() {
         </div>
       )}
 
-      {showEditUserModal && editingUser && (
+      {showEditUserModal && editingUserId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-slate-800">编辑用户</h2>
               <button
-                onClick={() => setShowEditUserModal(false)}
+                onClick={() => { setShowEditUserModal(false); setEditingUserId(null); }}
                 className="text-slate-400 hover:text-slate-600"
               >
                 <X className="w-5 h-5" />
@@ -477,7 +464,7 @@ export function System() {
             </div>
             <div className="flex gap-3 p-6 border-t border-slate-100">
               <button
-                onClick={() => setShowEditUserModal(false)}
+                onClick={() => { setShowEditUserModal(false); setEditingUserId(null); }}
                 className="flex-1 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
               >
                 取消

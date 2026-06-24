@@ -64,6 +64,7 @@ interface AppState {
   user: User | null;
   isLoggedIn: boolean;
   isAuthenticated: boolean;
+  users: User[];
   companies: Company[];
   customers: Customer[];
   orders: Order[];
@@ -76,6 +77,10 @@ interface AppState {
 
   login: (username: string, password: string) => boolean;
   logout: () => void;
+
+  addUser: (user: Omit<User, 'id' | 'createdAt'>) => void;
+  updateUser: (id: string, user: Partial<User>) => void;
+  deleteUser: (id: string) => void;
 
   addCompany: (company: Omit<Company, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateCompany: (id: string, company: Partial<Company>) => void;
@@ -124,6 +129,7 @@ const initialUsers: User[] = [
     password: 'admin123',
     name: '系统管理员',
     role: 'admin',
+    status: 'active',
     createdAt: new Date(),
   },
 ];
@@ -387,6 +393,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   user: null,
   isLoggedIn: false,
   isAuthenticated: false,
+  users: loadFromStorage(STORAGE_KEYS.USERS, initialUsers),
   companies: loadFromStorage(STORAGE_KEYS.COMPANIES, []),
   customers: loadFromStorage(STORAGE_KEYS.CUSTOMERS, initialCustomers),
   orders: loadFromStorage(STORAGE_KEYS.ORDERS, initialOrders),
@@ -409,6 +416,38 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   logout: () => {
     set({ user: null, isLoggedIn: false, isAuthenticated: false });
+  },
+
+  addUser: (user) => {
+    const newUser = {
+      ...user,
+      id: Date.now().toString(),
+      createdAt: new Date(),
+    };
+    set((state) => {
+      const newUsers = [...state.users, newUser];
+      saveToStorage(STORAGE_KEYS.USERS, newUsers);
+      return { users: newUsers };
+    });
+    get().addToast({ type: 'success', message: '用户添加成功' });
+  },
+
+  updateUser: (id, user) => {
+    set((state) => {
+      const newUsers = state.users.map(u => u.id === id ? { ...u, ...user } : u);
+      saveToStorage(STORAGE_KEYS.USERS, newUsers);
+      return { users: newUsers };
+    });
+    get().addToast({ type: 'success', message: '用户更新成功' });
+  },
+
+  deleteUser: (id) => {
+    set((state) => {
+      const newUsers = state.users.filter(u => u.id !== id);
+      saveToStorage(STORAGE_KEYS.USERS, newUsers);
+      return { users: newUsers };
+    });
+    get().addToast({ type: 'success', message: '用户删除成功' });
   },
 
   addCompany: (company) => {
