@@ -15,6 +15,7 @@
     "build:gh": "VITE_GITHUB_PAGES=true tsc -b && vite build"
   },
   "dependencies": {
+    "@cloudflare/kv-asset-handler": "^0.5.0",
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "docx": "^9.6.1",

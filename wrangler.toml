@@ -1,14 +1,9 @@
 name = "supply-chain-finance"
-type = "static"
+compatibility_date = "2026-06-24"
+main = "src/index.ts"
 
 [build]
 command = "npm run build"
-publish = "dist"
 
 [assets]
 directory = "./dist"
-
-[[redirects]]
-source = "/*"
-destination = "/index.html"
-status = 200
