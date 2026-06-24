@@ -4,6 +4,3 @@ main = "worker.ts"
 
 [build]
 command = "npm run build"
-
-[assets]
-directory = "./dist"

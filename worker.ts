@@ -1,23 +1,26 @@
-import { getAssetFromKV, mapRequestToAsset } from '@cloudflare/kv-asset-handler'
-
 addEventListener('fetch', (event: any) => {
-  event.respondWith(handleEvent(event))
+  event.respondWith(handleRequest(event.request))
 })
 
-async function handleEvent(event: any): Promise<Response> {
-  try {
-    const request = event.request
-    const url = new URL(request.url)
-    
-    if (!url.pathname.startsWith('/assets/') && !url.pathname.includes('.')) {
-      const indexAsset = await getAssetFromKV(event, {
-        mapRequestToAsset: () => new Request(`${url.origin}/index.html`, request)
-      })
-      return indexAsset
-    }
-    
-    return getAssetFromKV(event)
-  } catch (e) {
-    return new Response(`Error: ${e}`, { status: 500 })
+const ASSETS = {
+  '/': () => fetch('https://raw.githubusercontent.com/zcx0716/supply-chain-finance/main/dist/index.html'),
+  '/index.html': () => fetch('https://raw.githubusercontent.com/zcx0716/supply-chain-finance/main/dist/index.html'),
+}
+
+async function handleRequest(request: Request): Promise<Response> {
+  const url = new URL(request.url)
+  const path = url.pathname
+
+  if (path.startsWith('/assets/')) {
+    return fetch(`https://raw.githubusercontent.com/zcx0716/supply-chain-finance/main/dist${path}`)
   }
+
+  if (path.includes('.') && !path.endsWith('/')) {
+    return fetch(`https://raw.githubusercontent.com/zcx0716/supply-chain-finance/main/dist${path}`)
+  }
+
+  const indexResponse = await fetch('https://raw.githubusercontent.com/zcx0716/supply-chain-finance/main/dist/index.html')
+  return new Response(await indexResponse.text(), {
+    headers: { 'Content-Type': 'text/html' },
+  })
 }
