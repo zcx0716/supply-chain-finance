@@ -11,7 +11,7 @@ export function Login() {
   const { login, addToast } = useAppStore();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -20,7 +20,7 @@ export function Login() {
       return;
     }
 
-    const success = login(username, password);
+    const success = await login(username, password);
     if (success) {
       addToast({ type: 'success', message: '登录成功' });
       navigate('/dashboard');

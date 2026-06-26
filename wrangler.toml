@@ -1,3 +1,19 @@
-name = "supply-chain-finance"
-compatibility_date = "2026-06-24"
-main = "worker.ts"
+name = "supply-chain-finance-api"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+JWT_SECRET = "supply-chain-finance-secret-key-2024"
+JWT_EXPIRES_IN = "7d"
+BCRYPT_ROUNDS = 10
+
+[[d1_databases]]
+binding = "DB"
+database_name = "supply-chain-finance"
+database_id = "430ca25d-bc15-4f84-9d7b-0edff56b97af"
+
+[env.production]
+name = "supply-chain-finance-api-prod"
+
+[env.staging]
+name = "supply-chain-finance-api-staging"

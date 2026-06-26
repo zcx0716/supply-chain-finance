@@ -120,11 +120,11 @@ export interface ContractTemplate {
 export interface User {
   id: string;
   username: string;
-  password: string;
+  password?: string;
   name: string;
   role: 'admin' | 'user';
   status?: 'active' | 'inactive';
-  createdAt: Date;
+  createdAt?: string;
 }
 
 export interface Toast {

@@ -1,64 +1,7 @@
 import { create } from 'zustand';
-import { Company, Customer, Order, ReceivablePlan, PayablePlan, PaymentRecord, Contract, Toast, User, PaymentInstallment, ContractTemplate } from '../types';
+import { Company, Customer, Order, ReceivablePlan, PayablePlan, PaymentRecord, Contract, Toast, User, ContractTemplate } from '../types';
+import { authAPI, customerAPI, orderAPI, planAPI, paymentAPI, contractAPI } from '../api';
 import { generateInstallments } from '../utils/paymentCalculator';
-
-const STORAGE_KEYS = {
-  USERS: 'scm_users',
-  COMPANIES: 'scm_companies',
-  CUSTOMERS: 'scm_customers',
-  ORDERS: 'scm_orders',
-  RECEIVABLE_PLANS: 'scm_receivable_plans',
-  PAYABLE_PLANS: 'scm_payable_plans',
-  PAYMENT_RECORDS: 'scm_payment_records',
-  CONTRACTS: 'scm_contracts',
-  CONTRACT_FILES: 'scm_contract_files',
-};
-
-const loadFromStorage = <T>(key: string, defaultValue: T): T => {
-  try {
-    const stored = localStorage.getItem(key);
-    if (!stored) return defaultValue;
-    const parsed = JSON.parse(stored);
-    if (Array.isArray(parsed)) {
-      if (parsed.length === 0 && Array.isArray(defaultValue) && defaultValue.length > 0) {
-        return defaultValue;
-      }
-      return parsed.map(item => {
-        if (item.createdAt) item.createdAt = new Date(item.createdAt);
-        if (item.updatedAt) item.updatedAt = new Date(item.updatedAt);
-        if (item.plannedDate) item.plannedDate = new Date(item.plannedDate);
-        if (item.actualDate) item.actualDate = new Date(item.actualDate);
-        if (item.date) item.date = new Date(item.date);
-        if (!item.currency && key === STORAGE_KEYS.ORDERS) item.currency = 'CNY';
-        if (!item.linkedOrderIds) item.linkedOrderIds = [];
-        if (!item.upstreams) item.upstreams = [];
-        if (!item.downstreams) item.downstreams = [];
-        if (!item.receivableAmount) item.receivableAmount = 0;
-        if (!item.payableAmount) item.payableAmount = 0;
-        if (item.installments) {
-          item.installments = item.installments.map((inst: PaymentInstallment) => ({
-            ...inst,
-            plannedDate: new Date(inst.plannedDate),
-            actualDate: inst.actualDate ? new Date(inst.actualDate) : undefined,
-          }));
-        }
-        return item;
-      }) as T;
-    }
-    return parsed;
-  } catch (error) {
-    console.error(`Error loading ${key} from storage:`, error);
-    return defaultValue;
-  }
-};
-
-const saveToStorage = <T>(key: string, value: T) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.error(`Error saving ${key} to storage:`, error);
-  }
-};
 
 interface AppState {
   user: User | null;
@@ -74,47 +17,58 @@ interface AppState {
   contracts: Contract[];
   contractFiles: ContractTemplate[];
   toasts: Toast[];
+  isLoading: boolean;
 
-  login: (username: string, password: string) => boolean;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
+  loadUser: () => Promise<void>;
 
-  addUser: (user: Omit<User, 'id' | 'createdAt'>) => void;
-  updateUser: (id: string, user: Partial<User>) => void;
-  deleteUser: (id: string) => void;
+  addUser: (user: Omit<User, 'id' | 'createdAt'>) => Promise<void>;
+  updateUser: (id: string, user: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
+  loadUsers: () => Promise<void>;
 
-  addCompany: (company: Omit<Company, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateCompany: (id: string, company: Partial<Company>) => void;
-  deleteCompany: (id: string) => void;
+  addCompany: (company: Omit<Company, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateCompany: (id: string, company: Partial<Company>) => Promise<void>;
+  deleteCompany: (id: string) => Promise<void>;
+  loadCompanies: () => Promise<void>;
 
-  addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateCustomer: (id: string, customer: Partial<Customer>) => void;
-  deleteCustomer: (id: string) => void;
+  addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateCustomer: (id: string, customer: Partial<Customer>) => Promise<void>;
+  deleteCustomer: (id: string) => Promise<void>;
+  loadCustomers: () => Promise<void>;
 
-  addOrder: (order: Omit<Order, 'id' | 'orderNo' | 'createdAt' | 'updatedAt'>) => void;
-  updateOrder: (id: string, order: Partial<Order>) => void;
-  deleteOrder: (id: string) => void;
+  addOrder: (order: Omit<Order, 'id' | 'orderNo' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateOrder: (id: string, order: Partial<Order>) => Promise<void>;
+  deleteOrder: (id: string) => Promise<void>;
+  loadOrders: () => Promise<void>;
 
-  addReceivablePlan: (plan: Omit<ReceivablePlan, 'id' | 'createdAt'>) => void;
-  updateReceivablePlan: (id: string, plan: Partial<ReceivablePlan>) => void;
-  deleteReceivablePlan: (id: string) => void;
-  updateReceivableInstallment: (planId: string, installmentId: string, updates: Partial<PaymentInstallment>) => void;
+  addReceivablePlan: (plan: Omit<ReceivablePlan, 'id' | 'createdAt'>) => Promise<void>;
+  updateReceivablePlan: (id: string, plan: Partial<ReceivablePlan>) => Promise<void>;
+  deleteReceivablePlan: (id: string) => Promise<void>;
+  updateReceivableInstallment: (planId: string, installmentId: string, updates: Partial<PaymentInstallment>) => Promise<void>;
+  loadReceivablePlans: () => Promise<void>;
 
-  addPayablePlan: (plan: Omit<PayablePlan, 'id' | 'createdAt'>) => void;
-  updatePayablePlan: (id: string, plan: Partial<PayablePlan>) => void;
-  deletePayablePlan: (id: string) => void;
-  updatePayableInstallment: (planId: string, installmentId: string, updates: Partial<PaymentInstallment>) => void;
+  addPayablePlan: (plan: Omit<PayablePlan, 'id' | 'createdAt'>) => Promise<void>;
+  updatePayablePlan: (id: string, plan: Partial<PayablePlan>) => Promise<void>;
+  deletePayablePlan: (id: string) => Promise<void>;
+  updatePayableInstallment: (planId: string, installmentId: string, updates: Partial<PaymentInstallment>) => Promise<void>;
+  loadPayablePlans: () => Promise<void>;
 
-  addPaymentRecord: (record: Omit<PaymentRecord, 'id' | 'createdAt'>) => void;
-  updatePaymentRecord: (id: string, record: Partial<PaymentRecord>) => void;
-  deletePaymentRecord: (id: string) => void;
+  addPaymentRecord: (record: Omit<PaymentRecord, 'id' | 'createdAt'>) => Promise<void>;
+  updatePaymentRecord: (id: string, record: Partial<PaymentRecord>) => Promise<void>;
+  deletePaymentRecord: (id: string) => Promise<void>;
+  loadPaymentRecords: () => Promise<void>;
 
-  addContract: (contract: Omit<Contract, 'id' | 'createdAt'>) => void;
-  updateContract: (id: string, contract: Partial<Contract>) => void;
-  deleteContract: (id: string) => void;
+  addContract: (contract: Omit<Contract, 'id' | 'createdAt'>) => Promise<void>;
+  updateContract: (id: string, contract: Partial<Contract>) => Promise<void>;
+  deleteContract: (id: string) => Promise<void>;
+  loadContracts: () => Promise<void>;
 
-  addContractFile: (file: Omit<ContractTemplate, 'id' | 'createdAt'>) => void;
-  updateContractFile: (id: string, file: Partial<ContractTemplate>) => void;
-  deleteContractFile: (id: string) => void;
+  addContractFile: (file: Omit<ContractTemplate, 'id' | 'createdAt'>) => Promise<void>;
+  updateContractFile: (id: string, file: Partial<ContractTemplate>) => Promise<void>;
+  deleteContractFile: (id: string) => Promise<void>;
+  loadContractFiles: () => Promise<void>;
 
   addToast: (toast: Omit<Toast, 'id'>) => void;
   removeToast: (id: string) => void;
@@ -122,656 +76,452 @@ interface AppState {
   clearAllData: () => void;
 }
 
-const initialUsers: User[] = [
-  {
-    id: '1',
-    username: 'admin',
-    password: 'admin123',
-    name: '系统管理员',
-    role: 'admin',
-    status: 'active',
-    createdAt: new Date(),
-  },
-];
-
-const initialOrders: Order[] = [
-  {
-    id: 'order1',
-    orderNo: 'ORD2026051476952366',
-    mainCompany: {
-      id: 'c1',
-      name: '北京主体企业有限公司',
-      unifiedCreditCode: '91110000MA001ABC12',
-      contactPerson: '张三',
-      contactPhone: '13800138001',
-      address: '北京市朝阳区建国路88号',
-      region: '北京',
-      industry: '贸易',
-      createdAt: new Date('2024-01-15'),
-      updatedAt: new Date('2024-01-15'),
-    },
-    upstreams: [
-      {
-        id: 'up1',
-        company: {
-          id: 'c5',
-          name: '如禾农业发展有限公司',
-          unifiedCreditCode: '91410000MA005MNO90',
-          contactPerson: '孙七',
-          contactPhone: '13500135005',
-          address: '河南省郑州市农业路',
-          region: '河南',
-          industry: '农业',
-          createdAt: new Date('2024-05-20'),
-          updatedAt: new Date('2024-05-20'),
-        },
-        amount: 1000000,
-        items: [],
-      },
-    ],
-    downstreams: [
-      {
-        id: 'down1',
-        company: {
-          id: 'c2',
-          name: '上海供应商A',
-          unifiedCreditCode: '91310000MA002DEF34',
-          contactPerson: '李四',
-          contactPhone: '13900139002',
-          address: '上海市浦东新区张江高科技园区',
-          region: '上海',
-          industry: '制造业',
-          createdAt: new Date('2024-02-20'),
-          updatedAt: new Date('2024-02-20'),
-        },
-        amount: 1000000,
-        items: [],
-      },
-    ],
-    receivableAmount: 1000000,
-    payableAmount: 1000000,
-    currency: 'CNY',
-    linkedOrderIds: [],
-    status: 'active',
-    createdAt: new Date('2026-05-14'),
-    updatedAt: new Date('2026-05-14'),
-  },
-  {
-    id: 'order2',
-    orderNo: 'ORD2026062347024917',
-    mainCompany: {
-      id: 'c1',
-      name: '北京主体企业有限公司',
-      unifiedCreditCode: '91110000MA001ABC12',
-      contactPerson: '张三',
-      contactPhone: '13800138001',
-      address: '北京市朝阳区建国路88号',
-      region: '北京',
-      industry: '贸易',
-      createdAt: new Date('2024-01-15'),
-      updatedAt: new Date('2024-01-15'),
-    },
-    upstreams: [
-      {
-        id: 'up2',
-        company: {
-          id: 'c4',
-          name: '哆买熊科技有限公司',
-          unifiedCreditCode: '91440300MA004JKL78',
-          contactPerson: '赵六',
-          contactPhone: '13600136004',
-          address: '广东省深圳市福田区科技园',
-          region: '广东',
-          industry: '电子商务',
-          createdAt: new Date('2024-04-15'),
-          updatedAt: new Date('2024-04-15'),
-        },
-        amount: 500000,
-        items: [],
-      },
-    ],
-    downstreams: [
-      {
-        id: 'down2',
-        company: {
-          id: 'c6',
-          name: '江苏鑫启旺贸易有限公司',
-          unifiedCreditCode: '91320000MA006PQR12',
-          contactPerson: '周八',
-          contactPhone: '13400134006',
-          address: '江苏省南京市中山路',
-          region: '江苏',
-          industry: '贸易',
-          createdAt: new Date('2024-06-01'),
-          updatedAt: new Date('2024-06-01'),
-        },
-        amount: 500000,
-        items: [],
-      },
-    ],
-    receivableAmount: 500000,
-    payableAmount: 500000,
-    currency: 'CNY',
-    linkedOrderIds: [],
-    status: 'active',
-    createdAt: new Date('2026-06-23'),
-    updatedAt: new Date('2026-06-23'),
-  },
-];
-
-const initialCustomers: Customer[] = [
-  {
-    id: 'c1',
-    name: '北京主体企业有限公司',
-    unifiedCreditCode: '91110000MA001ABC12',
-    contactPerson: '张三',
-    contactPhone: '13800138001',
-    address: '北京市朝阳区建国路88号',
-    region: '北京',
-    industry: '贸易',
-    createdAt: new Date('2024-01-15'),
-    updatedAt: new Date('2024-01-15'),
-  },
-  {
-    id: 'c2',
-    name: '上海供应商A',
-    unifiedCreditCode: '91310000MA002DEF34',
-    contactPerson: '李四',
-    contactPhone: '13900139002',
-    address: '上海市浦东新区张江高科技园区',
-    region: '上海',
-    industry: '制造业',
-    createdAt: new Date('2024-02-20'),
-    updatedAt: new Date('2024-02-20'),
-  },
-  {
-    id: 'c3',
-    name: '深圳供应商B',
-    unifiedCreditCode: '91440000MA003GHI56',
-    contactPerson: '王五',
-    contactPhone: '13700137003',
-    address: '深圳市南山区科技园',
-    region: '深圳',
-    industry: '制造业',
-    createdAt: new Date('2024-03-10'),
-    updatedAt: new Date('2024-03-10'),
-  },
-  {
-    id: 'c4',
-    name: '哆买熊科技有限公司',
-    unifiedCreditCode: '91440300MA004JKL78',
-    contactPerson: '赵六',
-    contactPhone: '13600136004',
-    address: '广东省深圳市福田区科技园',
-    region: '广东',
-    industry: '电子商务',
-    createdAt: new Date('2024-04-15'),
-    updatedAt: new Date('2024-04-15'),
-  },
-  {
-    id: 'c5',
-    name: '如禾农业发展有限公司',
-    unifiedCreditCode: '91410000MA005MNO90',
-    contactPerson: '孙七',
-    contactPhone: '13500135005',
-    address: '河南省郑州市农业路',
-    region: '河南',
-    industry: '农业',
-    createdAt: new Date('2024-05-20'),
-    updatedAt: new Date('2024-05-20'),
-  },
-  {
-    id: 'c6',
-    name: '江苏鑫启旺贸易有限公司',
-    unifiedCreditCode: '91320000MA006PQR12',
-    contactPerson: '周八',
-    contactPhone: '13400134006',
-    address: '江苏省南京市中山路',
-    region: '江苏',
-    industry: '贸易',
-    createdAt: new Date('2024-06-01'),
-    updatedAt: new Date('2024-06-01'),
-  },
-  {
-    id: 'c7',
-    name: '江西哲丰实业有限公司',
-    unifiedCreditCode: '91360000MA007STU34',
-    contactPerson: '吴九',
-    contactPhone: '13300133007',
-    address: '江西省南昌市红谷滩新区',
-    region: '江西',
-    industry: '制造业',
-    createdAt: new Date('2024-07-10'),
-    updatedAt: new Date('2024-07-10'),
-  },
-  {
-    id: 'c8',
-    name: '猫猫头食品有限公司',
-    unifiedCreditCode: '91330000MA008VWX56',
-    contactPerson: '郑十',
-    contactPhone: '13200132008',
-    address: '浙江省杭州市西湖区',
-    region: '浙江',
-    industry: '食品加工',
-    createdAt: new Date('2024-08-15'),
-    updatedAt: new Date('2024-08-15'),
-  },
-  {
-    id: 'c9',
-    name: '温州制造业集团',
-    unifiedCreditCode: '91330300MA009YZ12',
-    contactPerson: '钱十一',
-    contactPhone: '13100131009',
-    address: '浙江省温州市鹿城区',
-    region: '浙江',
-    industry: '制造业',
-    createdAt: new Date('2024-09-01'),
-    updatedAt: new Date('2024-09-01'),
-  },
-  {
-    id: 'c10',
-    name: '温州贸易有限公司',
-    unifiedCreditCode: '91330300MA010AB34',
-    contactPerson: '刘十二',
-    contactPhone: '13000130010',
-    address: '浙江省温州市瓯海区',
-    region: '浙江',
-    industry: '贸易',
-    createdAt: new Date('2024-10-15'),
-    updatedAt: new Date('2024-10-15'),
-  },
-];
-
-const generateOrderNo = () => {
-  const date = new Date();
-  const timestamp = date.getTime().toString().slice(-6);
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  return `ORD${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${timestamp}${random}`;
-};
-
 export const useAppStore = create<AppState>((set, get) => ({
   user: null,
   isLoggedIn: false,
   isAuthenticated: false,
-  users: loadFromStorage(STORAGE_KEYS.USERS, initialUsers),
-  companies: loadFromStorage(STORAGE_KEYS.COMPANIES, []),
-  customers: loadFromStorage(STORAGE_KEYS.CUSTOMERS, initialCustomers),
-  orders: loadFromStorage(STORAGE_KEYS.ORDERS, initialOrders),
-  receivablePlans: loadFromStorage(STORAGE_KEYS.RECEIVABLE_PLANS, []),
-  payablePlans: loadFromStorage(STORAGE_KEYS.PAYABLE_PLANS, []),
-  paymentRecords: loadFromStorage(STORAGE_KEYS.PAYMENT_RECORDS, []),
-  contracts: loadFromStorage(STORAGE_KEYS.CONTRACTS, []),
-  contractFiles: loadFromStorage(STORAGE_KEYS.CONTRACT_FILES, []),
+  users: [],
+  companies: [],
+  customers: [],
+  orders: [],
+  receivablePlans: [],
+  payablePlans: [],
+  paymentRecords: [],
+  contracts: [],
+  contractFiles: [],
   toasts: [],
+  isLoading: false,
 
-  login: (username, password) => {
-    const users = loadFromStorage(STORAGE_KEYS.USERS, initialUsers);
-    const user = users.find(u => u.username === username && u.password === password);
-    if (user) {
-      set({ user, isLoggedIn: true, isAuthenticated: true });
+  login: async (username, password) => {
+    try {
+      const result = await authAPI.login(username, password);
+      localStorage.setItem('token', result.token);
+      set({ user: result.user, isLoggedIn: true, isAuthenticated: true });
       return true;
+    } catch (error) {
+      get().addToast({ type: 'error', message: '登录失败: ' + (error as Error).message });
+      return false;
     }
-    return false;
   },
 
   logout: () => {
+    localStorage.removeItem('token');
     set({ user: null, isLoggedIn: false, isAuthenticated: false });
   },
 
-  addUser: (user) => {
-    const newUser = {
-      ...user,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-    };
-    set((state) => {
-      const newUsers = [...state.users, newUser];
-      saveToStorage(STORAGE_KEYS.USERS, newUsers);
-      return { users: newUsers };
-    });
-    get().addToast({ type: 'success', message: '用户添加成功' });
+  loadUser: async () => {
+    try {
+      const result = await authAPI.getMe();
+      set({ user: result.user, isLoggedIn: true, isAuthenticated: true });
+    } catch (error) {
+      localStorage.removeItem('token');
+      set({ user: null, isLoggedIn: false, isAuthenticated: false });
+    }
   },
 
-  updateUser: (id, user) => {
-    set((state) => {
-      const newUsers = state.users.map(u => u.id === id ? { ...u, ...user } : u);
-      saveToStorage(STORAGE_KEYS.USERS, newUsers);
-      return { users: newUsers };
-    });
-    get().addToast({ type: 'success', message: '用户更新成功' });
+  addUser: async (user) => {
+    try {
+      const newUser = await authAPI.createUser(user);
+      set((state) => ({ users: [...state.users, newUser] }));
+      get().addToast({ type: 'success', message: '用户添加成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '添加失败: ' + (error as Error).message });
+    }
   },
 
-  deleteUser: (id) => {
-    set((state) => {
-      const newUsers = state.users.filter(u => u.id !== id);
-      saveToStorage(STORAGE_KEYS.USERS, newUsers);
-      return { users: newUsers };
-    });
-    get().addToast({ type: 'success', message: '用户删除成功' });
+  updateUser: async (id, user) => {
+    try {
+      const updatedUser = await authAPI.updateUser(id, user);
+      set((state) => ({ users: state.users.map(u => u.id === id ? updatedUser : u) }));
+      get().addToast({ type: 'success', message: '用户更新成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '更新失败: ' + (error as Error).message });
+    }
   },
 
-  addCompany: (company) => {
-    const newCompany = {
-      ...company,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    set((state) => {
-      const newCompanies = [...state.companies, newCompany];
-      saveToStorage(STORAGE_KEYS.COMPANIES, newCompanies);
-      return { companies: newCompanies };
-    });
-    get().addToast({ type: 'success', message: '企业添加成功' });
+  deleteUser: async (id) => {
+    try {
+      await authAPI.deleteUser(id);
+      set((state) => ({ users: state.users.filter(u => u.id !== id) }));
+      get().addToast({ type: 'success', message: '用户删除成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '删除失败: ' + (error as Error).message });
+    }
   },
 
-  updateCompany: (id, company) => {
-    set((state) => {
-      const newCompanies = state.companies.map(c => c.id === id ? { ...c, ...company, updatedAt: new Date() } : c);
-      saveToStorage(STORAGE_KEYS.COMPANIES, newCompanies);
-      return { companies: newCompanies };
-    });
-    get().addToast({ type: 'success', message: '企业更新成功' });
+  loadUsers: async () => {
+    try {
+      const users = await authAPI.getUsers();
+      set({ users });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '加载用户失败: ' + (error as Error).message });
+    }
   },
 
-  deleteCompany: (id) => {
-    set((state) => {
-      const newCompanies = state.companies.filter(c => c.id !== id);
-      saveToStorage(STORAGE_KEYS.COMPANIES, newCompanies);
-      return { companies: newCompanies };
-    });
-    get().addToast({ type: 'success', message: '企业删除成功' });
+  addCompany: async (company) => {
+    try {
+      const newCompany = await customerAPI.create(company);
+      set((state) => ({ companies: [...state.companies, newCompany] }));
+      get().addToast({ type: 'success', message: '企业添加成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '添加失败: ' + (error as Error).message });
+    }
   },
 
-  addCustomer: (customer) => {
-    const newCustomer = {
-      ...customer,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    set((state) => {
-      const newCustomers = [...state.customers, newCustomer];
-      saveToStorage(STORAGE_KEYS.CUSTOMERS, newCustomers);
-      return { customers: newCustomers };
-    });
-    get().addToast({ type: 'success', message: '客户添加成功' });
+  updateCompany: async (id, company) => {
+    try {
+      const updatedCompany = await customerAPI.update(id, company);
+      set((state) => ({ companies: state.companies.map(c => c.id === id ? updatedCompany : c) }));
+      get().addToast({ type: 'success', message: '企业更新成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '更新失败: ' + (error as Error).message });
+    }
   },
 
-  updateCustomer: (id, customer) => {
-    set((state) => {
-      const newCustomers = state.customers.map(c => c.id === id ? { ...c, ...customer, updatedAt: new Date() } : c);
-      saveToStorage(STORAGE_KEYS.CUSTOMERS, newCustomers);
-      return { customers: newCustomers };
-    });
-    get().addToast({ type: 'success', message: '客户更新成功' });
+  deleteCompany: async (id) => {
+    try {
+      await customerAPI.delete(id);
+      set((state) => ({ companies: state.companies.filter(c => c.id !== id) }));
+      get().addToast({ type: 'success', message: '企业删除成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '删除失败: ' + (error as Error).message });
+    }
   },
 
-  deleteCustomer: (id) => {
-    set((state) => {
-      const newCustomers = state.customers.filter(c => c.id !== id);
-      saveToStorage(STORAGE_KEYS.CUSTOMERS, newCustomers);
-      return { customers: newCustomers };
-    });
-    get().addToast({ type: 'success', message: '客户删除成功' });
+  loadCompanies: async () => {
+    try {
+      const companies = await customerAPI.getAll();
+      set({ companies });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '加载企业失败: ' + (error as Error).message });
+    }
   },
 
-  addOrder: (order) => {
-    const newOrder = {
-      ...order,
-      id: Date.now().toString(),
-      orderNo: generateOrderNo(),
-      linkedOrderIds: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    set((state) => {
-      const newOrders = [...state.orders, newOrder];
-      saveToStorage(STORAGE_KEYS.ORDERS, newOrders);
-      return { orders: newOrders };
-    });
-    
-    // 为每个下游生成收款计划
-    newOrder.downstreams.forEach(downstream => {
-      const installments = generateInstallments(downstream.amount);
-      get().addReceivablePlan({
-        orderId: newOrder.id,
-        downstreamId: downstream.id,
-        downstreamName: downstream.company.name,
-        totalAmount: downstream.amount,
-        installments,
-      });
-    });
-    
-    // 为每个上游生成付款计划
-    newOrder.upstreams.forEach(upstream => {
-      const installments = generateInstallments(upstream.amount);
-      get().addPayablePlan({
-        orderId: newOrder.id,
-        upstreamId: upstream.id,
-        upstreamName: upstream.company.name,
-        totalAmount: upstream.amount,
-        installments,
-      });
-    });
-    
-    get().addToast({ type: 'success', message: '订单创建成功' });
+  addCustomer: async (customer) => {
+    try {
+      const newCustomer = await customerAPI.create(customer);
+      set((state) => ({ customers: [...state.customers, newCustomer] }));
+      get().addToast({ type: 'success', message: '客户添加成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '添加失败: ' + (error as Error).message });
+    }
   },
 
-  updateOrder: (id, order) => {
-    set((state) => {
-      const newOrders = state.orders.map(o => o.id === id ? { ...o, ...order, updatedAt: new Date() } : o);
-      saveToStorage(STORAGE_KEYS.ORDERS, newOrders);
-      return { orders: newOrders };
-    });
-    get().addToast({ type: 'success', message: '订单更新成功' });
+  updateCustomer: async (id, customer) => {
+    try {
+      const updatedCustomer = await customerAPI.update(id, customer);
+      set((state) => ({ customers: state.customers.map(c => c.id === id ? updatedCustomer : c) }));
+      get().addToast({ type: 'success', message: '客户更新成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '更新失败: ' + (error as Error).message });
+    }
   },
 
-  deleteOrder: (id) => {
-    set((state) => {
-      // 删除订单及其相关数据
-      const newOrders = state.orders.filter(o => o.id !== id);
-      const newContracts = state.contracts.filter(c => c.orderId !== id);
-      const newReceivablePlans = state.receivablePlans.filter(p => p.orderId !== id);
-      const newPayablePlans = state.payablePlans.filter(p => p.orderId !== id);
-      const newPaymentRecords = state.paymentRecords.filter(r => r.orderId !== id);
+  deleteCustomer: async (id) => {
+    try {
+      await customerAPI.delete(id);
+      set((state) => ({ customers: state.customers.filter(c => c.id !== id) }));
+      get().addToast({ type: 'success', message: '客户删除成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '删除失败: ' + (error as Error).message });
+    }
+  },
+
+  loadCustomers: async () => {
+    try {
+      const customers = await customerAPI.getAll();
+      set({ customers });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '加载客户失败: ' + (error as Error).message });
+    }
+  },
+
+  addOrder: async (order) => {
+    try {
+      const newOrder = await orderAPI.create(order);
+      set((state) => ({ orders: [...state.orders, newOrder] }));
       
-      saveToStorage(STORAGE_KEYS.ORDERS, newOrders);
-      saveToStorage(STORAGE_KEYS.CONTRACTS, newContracts);
-      saveToStorage(STORAGE_KEYS.RECEIVABLE_PLANS, newReceivablePlans);
-      saveToStorage(STORAGE_KEYS.PAYABLE_PLANS, newPayablePlans);
-      saveToStorage(STORAGE_KEYS.PAYMENT_RECORDS, newPaymentRecords);
+      newOrder.downstreams.forEach(downstream => {
+        const installments = generateInstallments(downstream.amount);
+        get().addReceivablePlan({
+          orderId: newOrder.id,
+          downstreamId: downstream.id,
+          downstreamName: downstream.company.name,
+          totalAmount: downstream.amount,
+          installments,
+        });
+      });
       
-      return { 
-        orders: newOrders,
-        contracts: newContracts,
-        receivablePlans: newReceivablePlans,
-        payablePlans: newPayablePlans,
-        paymentRecords: newPaymentRecords,
-      };
-    });
-    get().addToast({ type: 'success', message: '订单删除成功' });
-  },
-
-  addReceivablePlan: (plan) => {
-    const newPlan = {
-      ...plan,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      createdAt: new Date(),
-    };
-    set((state) => {
-      const newPlans = [...state.receivablePlans, newPlan];
-      saveToStorage(STORAGE_KEYS.RECEIVABLE_PLANS, newPlans);
-      return { receivablePlans: newPlans };
-    });
-  },
-
-  updateReceivablePlan: (id, plan) => {
-    set((state) => {
-      const newPlans = state.receivablePlans.map(p => p.id === id ? { ...p, ...plan } : p);
-      saveToStorage(STORAGE_KEYS.RECEIVABLE_PLANS, newPlans);
-      return { receivablePlans: newPlans };
-    });
-  },
-
-  deleteReceivablePlan: (id) => {
-    set((state) => {
-      const newPlans = state.receivablePlans.filter(p => p.id !== id);
-      saveToStorage(STORAGE_KEYS.RECEIVABLE_PLANS, newPlans);
-      return { receivablePlans: newPlans };
-    });
-  },
-
-  updateReceivableInstallment: (planId, installmentId, updates) => {
-    set((state) => {
-      const newPlans = state.receivablePlans.map(plan => {
-        if (plan.id !== planId) return plan;
-        const newInstallments = plan.installments.map(inst => {
-          if (inst.id !== installmentId) return inst;
-          return { ...inst, ...updates };
+      newOrder.upstreams.forEach(upstream => {
+        const installments = generateInstallments(upstream.amount);
+        get().addPayablePlan({
+          orderId: newOrder.id,
+          upstreamId: upstream.id,
+          upstreamName: upstream.company.name,
+          totalAmount: upstream.amount,
+          installments,
         });
-        return { ...plan, installments: newInstallments };
       });
-      saveToStorage(STORAGE_KEYS.RECEIVABLE_PLANS, newPlans);
-      return { receivablePlans: newPlans };
-    });
+      
+      get().addToast({ type: 'success', message: '订单创建成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '创建失败: ' + (error as Error).message });
+    }
   },
 
-  addPayablePlan: (plan) => {
-    const newPlan = {
-      ...plan,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      createdAt: new Date(),
-    };
-    set((state) => {
-      const newPlans = [...state.payablePlans, newPlan];
-      saveToStorage(STORAGE_KEYS.PAYABLE_PLANS, newPlans);
-      return { payablePlans: newPlans };
-    });
+  updateOrder: async (id, order) => {
+    try {
+      const updatedOrder = await orderAPI.update(id, order);
+      set((state) => ({ orders: state.orders.map(o => o.id === id ? { ...o, ...updatedOrder } : o) }));
+      get().addToast({ type: 'success', message: '订单更新成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '更新失败: ' + (error as Error).message });
+    }
   },
 
-  updatePayablePlan: (id, plan) => {
-    set((state) => {
-      const newPlans = state.payablePlans.map(p => p.id === id ? { ...p, ...plan } : p);
-      saveToStorage(STORAGE_KEYS.PAYABLE_PLANS, newPlans);
-      return { payablePlans: newPlans };
-    });
+  deleteOrder: async (id) => {
+    try {
+      await orderAPI.delete(id);
+      set((state) => ({ 
+        orders: state.orders.filter(o => o.id !== id),
+        contracts: state.contracts.filter(c => c.orderId !== id),
+        receivablePlans: state.receivablePlans.filter(p => p.orderId !== id),
+        payablePlans: state.payablePlans.filter(p => p.orderId !== id),
+        paymentRecords: state.paymentRecords.filter(r => r.orderId !== id),
+      }));
+      get().addToast({ type: 'success', message: '订单删除成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '删除失败: ' + (error as Error).message });
+    }
   },
 
-  deletePayablePlan: (id) => {
-    set((state) => {
-      const newPlans = state.payablePlans.filter(p => p.id !== id);
-      saveToStorage(STORAGE_KEYS.PAYABLE_PLANS, newPlans);
-      return { payablePlans: newPlans };
-    });
+  loadOrders: async () => {
+    try {
+      const orders = await orderAPI.getAll();
+      set({ orders });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '加载订单失败: ' + (error as Error).message });
+    }
   },
 
-  updatePayableInstallment: (planId, installmentId, updates) => {
-    set((state) => {
-      const newPlans = state.payablePlans.map(plan => {
-        if (plan.id !== planId) return plan;
-        const newInstallments = plan.installments.map(inst => {
-          if (inst.id !== installmentId) return inst;
-          return { ...inst, ...updates };
-        });
-        return { ...plan, installments: newInstallments };
-      });
-      saveToStorage(STORAGE_KEYS.PAYABLE_PLANS, newPlans);
-      return { payablePlans: newPlans };
-    });
+  addReceivablePlan: async (plan) => {
+    try {
+      const newPlan = await planAPI.createReceivable(plan);
+      set((state) => ({ receivablePlans: [...state.receivablePlans, newPlan] }));
+    } catch (error) {
+      get().addToast({ type: 'error', message: '添加收款计划失败: ' + (error as Error).message });
+    }
   },
 
-  addPaymentRecord: (record) => {
-    const newRecord = {
-      ...record,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-    };
-    set((state) => {
-      const newRecords = [...state.paymentRecords, newRecord];
-      saveToStorage(STORAGE_KEYS.PAYMENT_RECORDS, newRecords);
-      return { paymentRecords: newRecords };
-    });
-    get().addToast({ type: 'success', message: '回款记录添加成功' });
+  updateReceivablePlan: async (id, plan) => {
+    try {
+      await planAPI.updateReceivable(id, plan);
+      set((state) => ({ receivablePlans: state.receivablePlans.map(p => p.id === id ? { ...p, ...plan } : p) }));
+    } catch (error) {
+      get().addToast({ type: 'error', message: '更新收款计划失败: ' + (error as Error).message });
+    }
   },
 
-  updatePaymentRecord: (id, record) => {
-    set((state) => {
-      const newRecords = state.paymentRecords.map(r => r.id === id ? { ...r, ...record } : r);
-      saveToStorage(STORAGE_KEYS.PAYMENT_RECORDS, newRecords);
-      return { paymentRecords: newRecords };
-    });
-    get().addToast({ type: 'success', message: '回款记录更新成功' });
+  deleteReceivablePlan: async (id) => {
+    try {
+      await planAPI.deleteReceivable(id);
+      set((state) => ({ receivablePlans: state.receivablePlans.filter(p => p.id !== id) }));
+    } catch (error) {
+      get().addToast({ type: 'error', message: '删除收款计划失败: ' + (error as Error).message });
+    }
   },
 
-  deletePaymentRecord: (id) => {
-    set((state) => {
-      const newRecords = state.paymentRecords.filter(r => r.id !== id);
-      saveToStorage(STORAGE_KEYS.PAYMENT_RECORDS, newRecords);
-      return { paymentRecords: newRecords };
-    });
-    get().addToast({ type: 'success', message: '回款记录删除成功' });
+  updateReceivableInstallment: async (planId, installmentId, updates) => {
+    try {
+      await planAPI.updateInstallment(installmentId, updates);
+      set((state) => ({
+        receivablePlans: state.receivablePlans.map(plan => {
+          if (plan.id !== planId) return plan;
+          return {
+            ...plan,
+            installments: plan.installments.map(inst => inst.id === installmentId ? { ...inst, ...updates } : inst)
+          };
+        })
+      }));
+    } catch (error) {
+      get().addToast({ type: 'error', message: '更新分期失败: ' + (error as Error).message });
+    }
   },
 
-  addContract: (contract) => {
-    const newContract = {
-      ...contract,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-    };
-    set((state) => {
-      const newContracts = [...state.contracts, newContract];
-      saveToStorage(STORAGE_KEYS.CONTRACTS, newContracts);
-      return { contracts: newContracts };
-    });
+  loadReceivablePlans: async () => {
+    try {
+      const plans = await planAPI.getReceivable();
+      set({ receivablePlans: plans });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '加载收款计划失败: ' + (error as Error).message });
+    }
   },
 
-  updateContract: (id, contract) => {
-    set((state) => {
-      const newContracts = state.contracts.map(c => c.id === id ? { ...c, ...contract } : c);
-      saveToStorage(STORAGE_KEYS.CONTRACTS, newContracts);
-      return { contracts: newContracts };
-    });
+  addPayablePlan: async (plan) => {
+    try {
+      const newPlan = await planAPI.createPayable(plan);
+      set((state) => ({ payablePlans: [...state.payablePlans, newPlan] }));
+    } catch (error) {
+      get().addToast({ type: 'error', message: '添加付款计划失败: ' + (error as Error).message });
+    }
   },
 
-  deleteContract: (id) => {
-    set((state) => {
-      const newContracts = state.contracts.filter(c => c.id !== id);
-      saveToStorage(STORAGE_KEYS.CONTRACTS, newContracts);
-      return { contracts: newContracts };
-    });
+  updatePayablePlan: async (id, plan) => {
+    try {
+      await planAPI.updatePayable(id, plan);
+      set((state) => ({ payablePlans: state.payablePlans.map(p => p.id === id ? { ...p, ...plan } : p) }));
+    } catch (error) {
+      get().addToast({ type: 'error', message: '更新付款计划失败: ' + (error as Error).message });
+    }
   },
 
-  addContractFile: (file) => {
-    const newFile = {
-      ...file,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-    };
-    set((state) => {
-      const newFiles = [...state.contractFiles, newFile];
-      saveToStorage(STORAGE_KEYS.CONTRACT_FILES, newFiles);
-      return { contractFiles: newFiles };
-    });
-    get().addToast({ type: 'success', message: '合同模板上传成功' });
+  deletePayablePlan: async (id) => {
+    try {
+      await planAPI.deletePayable(id);
+      set((state) => ({ payablePlans: state.payablePlans.filter(p => p.id !== id) }));
+    } catch (error) {
+      get().addToast({ type: 'error', message: '删除付款计划失败: ' + (error as Error).message });
+    }
   },
 
-  updateContractFile: (id, file) => {
-    set((state) => {
-      const newFiles = state.contractFiles.map(f => f.id === id ? { ...f, ...file, updatedAt: new Date() } : f);
-      saveToStorage(STORAGE_KEYS.CONTRACT_FILES, newFiles);
-      return { contractFiles: newFiles };
-    });
-    get().addToast({ type: 'success', message: '合同模板更新成功' });
+  updatePayableInstallment: async (planId, installmentId, updates) => {
+    try {
+      await planAPI.updateInstallment(installmentId, updates);
+      set((state) => ({
+        payablePlans: state.payablePlans.map(plan => {
+          if (plan.id !== planId) return plan;
+          return {
+            ...plan,
+            installments: plan.installments.map(inst => inst.id === installmentId ? { ...inst, ...updates } : inst)
+          };
+        })
+      }));
+    } catch (error) {
+      get().addToast({ type: 'error', message: '更新分期失败: ' + (error as Error).message });
+    }
   },
 
-  deleteContractFile: (id) => {
-    set((state) => {
-      const newFiles = state.contractFiles.filter(f => f.id !== id);
-      saveToStorage(STORAGE_KEYS.CONTRACT_FILES, newFiles);
-      return { contractFiles: newFiles };
-    });
-    get().addToast({ type: 'success', message: '合同模板删除成功' });
+  loadPayablePlans: async () => {
+    try {
+      const plans = await planAPI.getPayable();
+      set({ payablePlans: plans });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '加载付款计划失败: ' + (error as Error).message });
+    }
+  },
+
+  addPaymentRecord: async (record) => {
+    try {
+      const newRecord = await paymentAPI.create(record);
+      set((state) => ({ paymentRecords: [...state.paymentRecords, newRecord] }));
+      get().addToast({ type: 'success', message: '回款记录添加成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '添加失败: ' + (error as Error).message });
+    }
+  },
+
+  updatePaymentRecord: async (id, record) => {
+    try {
+      const updatedRecord = await paymentAPI.update(id, record);
+      set((state) => ({ paymentRecords: state.paymentRecords.map(r => r.id === id ? updatedRecord : r) }));
+      get().addToast({ type: 'success', message: '回款记录更新成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '更新失败: ' + (error as Error).message });
+    }
+  },
+
+  deletePaymentRecord: async (id) => {
+    try {
+      await paymentAPI.delete(id);
+      set((state) => ({ paymentRecords: state.paymentRecords.filter(r => r.id !== id) }));
+      get().addToast({ type: 'success', message: '回款记录删除成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '删除失败: ' + (error as Error).message });
+    }
+  },
+
+  loadPaymentRecords: async () => {
+    try {
+      const records = await paymentAPI.getAll();
+      set({ paymentRecords: records });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '加载回款记录失败: ' + (error as Error).message });
+    }
+  },
+
+  addContract: async (contract) => {
+    try {
+      const newContract = await contractAPI.create(contract);
+      set((state) => ({ contracts: [...state.contracts, newContract] }));
+    } catch (error) {
+      get().addToast({ type: 'error', message: '添加合同失败: ' + (error as Error).message });
+    }
+  },
+
+  updateContract: async (id, contract) => {
+    try {
+      await contractAPI.update(id, contract);
+      set((state) => ({ contracts: state.contracts.map(c => c.id === id ? { ...c, ...contract } : c) }));
+    } catch (error) {
+      get().addToast({ type: 'error', message: '更新合同失败: ' + (error as Error).message });
+    }
+  },
+
+  deleteContract: async (id) => {
+    try {
+      await contractAPI.delete(id);
+      set((state) => ({ contracts: state.contracts.filter(c => c.id !== id) }));
+    } catch (error) {
+      get().addToast({ type: 'error', message: '删除合同失败: ' + (error as Error).message });
+    }
+  },
+
+  loadContracts: async () => {
+    try {
+      const contracts = await contractAPI.getAll();
+      set({ contracts });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '加载合同失败: ' + (error as Error).message });
+    }
+  },
+
+  addContractFile: async (file) => {
+    try {
+      const newFile = await contractAPI.createTemplate(file);
+      set((state) => ({ contractFiles: [...state.contractFiles, newFile] }));
+      get().addToast({ type: 'success', message: '合同模板上传成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '上传失败: ' + (error as Error).message });
+    }
+  },
+
+  updateContractFile: async (id, file) => {
+    try {
+      const updatedFile = await contractAPI.updateTemplate(id, file);
+      set((state) => ({ contractFiles: state.contractFiles.map(f => f.id === id ? updatedFile : f) }));
+      get().addToast({ type: 'success', message: '合同模板更新成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '更新失败: ' + (error as Error).message });
+    }
+  },
+
+  deleteContractFile: async (id) => {
+    try {
+      await contractAPI.deleteTemplate(id);
+      set((state) => ({ contractFiles: state.contractFiles.filter(f => f.id !== id) }));
+      get().addToast({ type: 'success', message: '合同模板删除成功' });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '删除失败: ' + (error as Error).message });
+    }
+  },
+
+  loadContractFiles: async () => {
+    try {
+      const files = await contractAPI.getTemplates();
+      set({ contractFiles: files });
+    } catch (error) {
+      get().addToast({ type: 'error', message: '加载合同模板失败: ' + (error as Error).message });
+    }
   },
 
   addToast: (toast) => {
@@ -791,10 +541,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   clearAllData: () => {
-    Object.values(STORAGE_KEYS).forEach(key => {
-      localStorage.removeItem(key);
-    });
     set({
+      users: [],
       companies: [],
       customers: [],
       orders: [],
@@ -807,3 +555,5 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().addToast({ type: 'success', message: '所有数据已清空' });
   },
 }));
+
+import { PaymentInstallment } from '../types';

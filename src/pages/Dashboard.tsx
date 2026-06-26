@@ -1,9 +1,26 @@
+import { useEffect } from 'react';
 import { Users, FileText, DollarSign, FileSignature, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useAppStore } from '../store';
 import { formatYuan } from '../utils/formatters';
 
 export function Dashboard() {
-  const { customers, orders, receivablePlans, payablePlans } = useAppStore();
+  const { 
+    customers, 
+    orders, 
+    receivablePlans, 
+    payablePlans,
+    loadCustomers,
+    loadOrders,
+    loadReceivablePlans,
+    loadPayablePlans
+  } = useAppStore();
+
+  useEffect(() => {
+    loadCustomers();
+    loadOrders();
+    loadReceivablePlans();
+    loadPayablePlans();
+  }, [loadCustomers, loadOrders, loadReceivablePlans, loadPayablePlans]);
 
   const totalReceivableAmount = receivablePlans.reduce((sum, plan) => sum + plan.totalAmount, 0);
   const completedReceivable = receivablePlans.reduce((sum, plan) => {
