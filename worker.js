@@ -4,6 +4,29 @@ import bcrypt from 'bcryptjs';
 
 const app = new Hono();
 
+const toCamelCase = (str) => {
+  return str.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
+};
+
+const convertKeys = (obj) => {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => convertKeys(item));
+  }
+  
+  const result = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const camelKey = toCamelCase(key);
+      result[camelKey] = convertKeys(obj[key]);
+    }
+  }
+  return result;
+};
+
 app.use('/api/*', async (c, next) => {
   c.res.headers.set('Access-Control-Allow-Origin', '*');
   c.res.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -113,7 +136,7 @@ app.get('/api/auth/users', authenticateToken, requireAdmin, async (c) => {
   const db = c.env.DB;
   const users = await db.prepare('SELECT id, username, name, role, status, created_at FROM users')
     .all();
-  return c.json(users.results);
+  return c.json(convertKeys(users.results));
 });
 
 app.post('/api/auth/users', authenticateToken, requireAdmin, async (c) => {
@@ -200,7 +223,7 @@ app.delete('/api/auth/users/:id', authenticateToken, requireAdmin, async (c) => 
 app.get('/api/customers', authenticateToken, async (c) => {
   const db = c.env.DB;
   const customers = await db.prepare('SELECT * FROM customers ORDER BY created_at DESC').all();
-  return c.json(customers.results);
+  return c.json(convertKeys(customers.results));
 });
 
 app.get('/api/customers/:id', authenticateToken, async (c) => {
@@ -213,11 +236,11 @@ app.get('/api/customers/:id', authenticateToken, async (c) => {
     return c.json({ error: 'Customer not found' }, 404);
   }
   
-  return c.json(customer);
+  return c.json(convertKeys(customer));
 });
 
 app.post('/api/customers', authenticateToken, async (c) => {
-  const { name, unified_credit_code, contact_person, contact_phone, address, region, industry } = await c.req.json();
+  const { name, unifiedCreditCode, contactPerson, contactPhone, address, region, industry } = await c.req.json();
   
   if (!name) {
     return c.json({ error: 'Name is required' }, 400);
@@ -230,25 +253,25 @@ app.post('/api/customers', authenticateToken, async (c) => {
   
   await db.prepare(
     'INSERT INTO customers (id, name, unified_credit_code, contact_person, contact_phone, address, region, industry, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(id, name, unified_credit_code, contact_person, contact_phone, address, region, industry, now, now).run();
+  ).bind(id, name, unifiedCreditCode, contactPerson, contactPhone, address, region, industry, now, now).run();
   
   return c.json({
-    id, name, unified_credit_code, contact_person, contact_phone, address, region, industry,
-    created_at: now, updated_at: now
+    id, name, unifiedCreditCode, contactPerson, contactPhone, address, region, industry,
+    createdAt: now, updatedAt: now
   }, 201);
 });
 
 app.put('/api/customers/:id', authenticateToken, async (c) => {
   const { id } = c.req.param();
-  const { name, unified_credit_code, contact_person, contact_phone, address, region, industry } = await c.req.json();
+  const { name, unifiedCreditCode, contactPerson, contactPhone, address, region, industry } = await c.req.json();
   
   const updates = [];
   const params = [];
   
   if (name) { updates.push('name = ?'); params.push(name); }
-  if (unified_credit_code !== undefined) { updates.push('unified_credit_code = ?'); params.push(unified_credit_code); }
-  if (contact_person) { updates.push('contact_person = ?'); params.push(contact_person); }
-  if (contact_phone) { updates.push('contact_phone = ?'); params.push(contact_phone); }
+  if (unifiedCreditCode !== undefined) { updates.push('unified_credit_code = ?'); params.push(unifiedCreditCode); }
+  if (contactPerson) { updates.push('contact_person = ?'); params.push(contactPerson); }
+  if (contactPhone) { updates.push('contact_phone = ?'); params.push(contactPhone); }
   if (address) { updates.push('address = ?'); params.push(address); }
   if (region) { updates.push('region = ?'); params.push(region); }
   if (industry) { updates.push('industry = ?'); params.push(industry); }
@@ -268,7 +291,7 @@ app.put('/api/customers/:id', authenticateToken, async (c) => {
   
   const customer = await db.prepare('SELECT * FROM customers WHERE id = ?').bind(id).first();
   
-  return c.json(customer);
+  return c.json(convertKeys(customer));
 });
 
 app.delete('/api/customers/:id', authenticateToken, async (c) => {
@@ -300,15 +323,15 @@ app.get('/api/orders', authenticateToken, async (c) => {
     
     const upstreamCompanies = await Promise.all(upstreams.results.map(async (upstream) => {
       const company = await db.prepare('SELECT * FROM customers WHERE id = ?').bind(upstream.company_id).first();
-      return { ...upstream, company };
+      return { ...convertKeys(upstream), company: convertKeys(company) };
     }));
     
     const downstreamCompanies = await Promise.all(downstreams.results.map(async (downstream) => {
       const company = await db.prepare('SELECT * FROM customers WHERE id = ?').bind(downstream.company_id).first();
-      return { ...downstream, company };
+      return { ...convertKeys(downstream), company: convertKeys(company) };
     }));
     
-    return { ...order, mainCompany, upstreams: upstreamCompanies, downstreams: downstreamCompanies };
+    return convertKeys({ ...order, mainCompany, upstreams: upstreamCompanies, downstreams: downstreamCompanies });
   }));
   
   return c.json(ordersWithRelations);
@@ -352,7 +375,7 @@ app.post('/api/orders', authenticateToken, async (c) => {
   return c.json({
     id, orderNo, mainCompany, upstreams: upstreams || [], downstreams: downstreams || [],
     receivableAmount, payableAmount, currency, status: 'active',
-    created_at: now, updated_at: now
+    createdAt: now, updatedAt: now
   }, 201);
 });
 
@@ -383,7 +406,7 @@ app.put('/api/orders/:id', authenticateToken, async (c) => {
   
   const order = await db.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
   
-  return c.json(order);
+  return c.json(convertKeys(order));
 });
 
 app.delete('/api/orders/:id', authenticateToken, async (c) => {
@@ -409,7 +432,7 @@ app.get('/api/plans/receivable', authenticateToken, async (c) => {
   const plansWithInstallments = await Promise.all(plans.results.map(async (plan) => {
     const installments = await db.prepare('SELECT * FROM payment_installments WHERE plan_id = ? AND plan_type = ?')
       .bind(plan.id, 'receivable').all();
-    return { ...plan, installments: installments.results };
+    return convertKeys({ ...plan, installments: installments.results });
   }));
   
   return c.json(plansWithInstallments);
@@ -454,7 +477,7 @@ app.get('/api/plans/payable', authenticateToken, async (c) => {
   const plansWithInstallments = await Promise.all(plans.results.map(async (plan) => {
     const installments = await db.prepare('SELECT * FROM payment_installments WHERE plan_id = ? AND plan_type = ?')
       .bind(plan.id, 'payable').all();
-    return { ...plan, installments: installments.results };
+    return convertKeys({ ...plan, installments: installments.results });
   }));
   
   return c.json(plansWithInstallments);
@@ -541,7 +564,7 @@ app.put('/api/plans/installment/:id', authenticateToken, async (c) => {
 app.get('/api/payments', authenticateToken, async (c) => {
   const db = c.env.DB;
   const records = await db.prepare('SELECT * FROM payment_records ORDER BY created_at DESC').all();
-  return c.json(records.results);
+  return c.json(convertKeys(records.results));
 });
 
 app.post('/api/payments', authenticateToken, async (c) => {
@@ -589,7 +612,7 @@ app.put('/api/payments/:id', authenticateToken, async (c) => {
   
   const record = await db.prepare('SELECT * FROM payment_records WHERE id = ?').bind(id).first();
   
-  return c.json(record);
+  return c.json(convertKeys(record));
 });
 
 app.delete('/api/payments/:id', authenticateToken, async (c) => {
@@ -604,7 +627,7 @@ app.delete('/api/payments/:id', authenticateToken, async (c) => {
 app.get('/api/contracts', authenticateToken, async (c) => {
   const db = c.env.DB;
   const contracts = await db.prepare('SELECT * FROM contracts ORDER BY created_at DESC').all();
-  return c.json(contracts.results);
+  return c.json(convertKeys(contracts.results));
 });
 
 app.post('/api/contracts', authenticateToken, async (c) => {
@@ -666,7 +689,7 @@ app.delete('/api/contracts/:id', authenticateToken, async (c) => {
 app.get('/api/contracts/templates', authenticateToken, async (c) => {
   const db = c.env.DB;
   const templates = await db.prepare('SELECT * FROM contract_templates ORDER BY created_at DESC').all();
-  return c.json(templates.results);
+  return c.json(convertKeys(templates.results));
 });
 
 app.post('/api/contracts/templates', authenticateToken, async (c) => {

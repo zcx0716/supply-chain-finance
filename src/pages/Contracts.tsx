@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Plus, FileText, Download, Upload, Trash2, Edit2, X, Save } from 'lucide-react';
 import mammoth from 'mammoth';
 import { useAppStore } from '../store';
@@ -9,7 +9,14 @@ import {
 } from '../utils/wordDocument';
 
 export function Contracts() {
-  const { orders, contracts, contractFiles, addContract, addContractFile, updateContractFile, deleteContractFile, deleteContract, addToast } = useAppStore();
+  const { orders, contracts, contractFiles, addContract, addContractFile, updateContractFile, deleteContractFile, deleteContract, addToast, loadOrders, loadContracts, loadContractFiles } = useAppStore();
+
+  useEffect(() => {
+    loadOrders();
+    loadContracts();
+    loadContractFiles();
+  }, [loadOrders, loadContracts, loadContractFiles]);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTemplateList, setShowTemplateList] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<string>('');

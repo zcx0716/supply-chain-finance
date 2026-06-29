@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Settings, Shield, Save, Plus, X } from 'lucide-react';
 import { useAppStore } from '../store';
 
 export function System() {
-  const { users, addUser, updateUser, deleteUser, addToast } = useAppStore();
+  const { users, addUser, updateUser, deleteUser, addToast, loadUsers } = useAppStore();
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
   const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'permissions'>('users');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);

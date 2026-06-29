@@ -1,11 +1,16 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Edit, Trash2, Upload, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAppStore } from '../store';
 import { Customer } from '../types';
 
 export function Customers() {
-  const { customers, addCustomer, updateCustomer, deleteCustomer, addToast } = useAppStore();
+  const { customers, addCustomer, updateCustomer, deleteCustomer, addToast, loadCustomers } = useAppStore();
+
+  useEffect(() => {
+    loadCustomers();
+  }, [loadCustomers]);
+
   const [showModal, setShowModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState<Partial<Customer>>({});

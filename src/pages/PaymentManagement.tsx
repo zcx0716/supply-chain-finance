@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { formatDate, formatYuan } from '../utils/formatters';
@@ -14,8 +14,17 @@ const PaymentManagement: React.FC = () => {
     payablePlans,
     updateReceivableInstallment,
     updatePayableInstallment,
-    addToast 
+    addToast,
+    loadOrders,
+    loadReceivablePlans,
+    loadPayablePlans
   } = useAppStore();
+
+  useEffect(() => {
+    loadOrders();
+    loadReceivablePlans();
+    loadPayablePlans();
+  }, [loadOrders, loadReceivablePlans, loadPayablePlans]);
 
   const [expandedReceivable, setExpandedReceivable] = useState<string | null>(null);
   const [expandedPayable, setExpandedPayable] = useState<string | null>(null);

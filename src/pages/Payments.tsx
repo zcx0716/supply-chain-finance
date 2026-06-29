@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { formatDate, formatYuan } from '../utils/formatters';
@@ -6,9 +6,15 @@ import { Eye, DollarSign, CreditCard, TrendingUp, TrendingDown } from 'lucide-re
 import { ReceivablePlan, PayablePlan, Order, PaymentInstallment } from '../types';
 
 const Payments: React.FC = () => {
-  const { orders, receivablePlans, payablePlans } = useAppStore();
+  const { orders, receivablePlans, payablePlans, loadOrders, loadReceivablePlans, loadPayablePlans } = useAppStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'receivable' | 'payable'>('receivable');
+
+  useEffect(() => {
+    loadOrders();
+    loadReceivablePlans();
+    loadPayablePlans();
+  }, [loadOrders, loadReceivablePlans, loadPayablePlans]);
 
   const totalReceivable = receivablePlans.reduce((sum, p) => sum + p.totalAmount, 0);
   const completedReceivable = receivablePlans.reduce((sum, p) => {

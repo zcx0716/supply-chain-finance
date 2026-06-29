@@ -174,8 +174,13 @@ const SearchSelect = ({
 };
 
 const Orders: React.FC = () => {
-  const { orders, customers, addOrder, updateOrder, deleteOrder, addToast } = useAppStore();
+  const { orders, customers, addOrder, updateOrder, deleteOrder, addToast, loadOrders, loadCustomers } = useAppStore();
   
+  useEffect(() => {
+    loadOrders();
+    loadCustomers();
+  }, [loadOrders, loadCustomers]);
+
   const [showModal, setShowModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [selectedMainCompany, setSelectedMainCompany] = useState('');
