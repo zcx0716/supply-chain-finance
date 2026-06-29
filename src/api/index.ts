@@ -15,14 +15,30 @@ const request = async <T>(url: string, options: RequestInit = {}): Promise<T> =>
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE_URL}${url}`, { ...options, headers });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
+  try {
+    const response = await fetch(`${API_BASE_URL}${url}`, { 
+      ...options, 
+      headers,
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error('请求超时，请检查网络连接');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return response.json();
 };
 
 export const authAPI = {
